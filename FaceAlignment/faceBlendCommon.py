@@ -1,120 +1,19 @@
-import sys,dlib, time
-import numpy as np
-import matplotlib.pyplot as plt
-import boto3
-import os
-import io
-import json
-import base64
+# Copyright 2017 BIG VISION LLC ALL RIGHTS RESERVED
+#
+# This code is made available to the students of
+# the online course titled "Computer Vision for Faces"
+# by Satya Mallick for personal non-commercial use.
+#
+# Sharing this code is strictly prohibited without written
+# permission from Big Vision LLC.
+#
+# For licensing and other inquiries, please email
+# spmallick@bigvisionllc.com
+#
 import cv2
 import dlib
 import numpy as np
 import math
-
-
-from requests_toolbelt.multipart import decoder
-print("Import End...")
-
-S3_BUCKET = os.environ['S3_BUCKET'] if 'S3_BUCKET' in os.environ else 'evadebs1'
-MODEL_PATH = os.environ['MODEL_PATH'] if 'MODEL_PATH' else 'shape_predictor_5_face_landmarks.dat'
-
-print('Downloading model...')
-s3 = boto3.client('s3')
-print('Downloaded model...')
-
-try:
-    if os.path.isfile(MODEL_PATH) != True:
-        print('ModelPath exists...')
-        obj = s3.get_object(Bucket=S3_BUCKET, Key=MODEL_PATH)
-        print('Creating ByteStream')
-        bytestream = io.BytesIO(obj['Body'].read())
-        with open(MODEL_PATH, "wb") as outfile:
-            # Copy the BytesIO stream to the output file
-            outfile.write(bytestream.getbuffer())
-        print("Loading Model")
-        faceDetector = dlib.get_frontal_face_detector()
-        print("detector Model")
-        landmarkDetector = dlib.shape_predictor(MODEL_PATH)
-        print("landmarkDetector Model")
-        
-        print("Model Loaded...")
-except Exception as e:
-    print(repr(e))
-    raise(e)
-print('model. is ready..')
-
-# get the aligned face
-def get_aligned_face(im):
-  # Detect faces in the image
-  #print('image tensor is',im)
-  faceRects = faceDetector(im, 0)
-  print("Number of faces detected: ",len(faceRects))
-
-  # Detect landmarks.
-  points = getLandmarks(faceDetector, landmarkDetector, im)
-  print('length of points is', points)
-
-  points = np.array(points)
-  print('after np array',len(points))
-  # Convert image to floating point in the range 0 to 1
-  im = np.float32(im)/255.0
-
-  # Dimensions of output image
-  h = 600
-  w = 600
-
-  # Normalize image to output coordinates.
-  if len(points) > 0:
-    imNorm, points = normalizeImagesAndLandmarks((h, w), im, points)
-
-    imNorm = np.uint8(imNorm*255)
-    return imNorm
-  else:
-    return im
-       
-
-    
-def face_allignment(event, context):
-    try:
-        print('Face Recognition')
-        content_type_header = event['headers']['content-type']
-        print(event['Content loaded'])
-        body = base64.b64decode(event['body'])
-        print('BODY LOADED')
-
-        picture = decoder.MultipartDecoder(body, content_type_header).parts[0]
-        #im1Display = cv2.cvtColor(picture, cv2.COLOR_BGR2RGB)
-        im_arr = np.frombuffer(picture.content, dtype=np.uint8)
-        im1Display = cv2.imdecode(im_arr, flags=cv2.IMREAD_COLOR)
-        print(event['Image received'])
-        #prediction = get_prediction(image_bytes=picture.content)
-        alignedIm1Display=get_aligned_face(im1Display)
-        print("image created")
-        
-        filename = picture.headers[b'Content-Disposition'].decode().split(';')[1].split('=')[1]
-        if len(filename) < 4:
-            filename = picture.headers[b'Content-Disposition'].decode().split(';')[2].split('=')[1]
-        
-        return {
-            'statusCode': 200,
-            'headers': {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Credentials': True
-            },
-            'body': json.dumps({'file': filename.replace('"', ''), 'predicted': 'success'})
-        }
-    except Exception as e:
-        print(repr(e))
-        return {
-            "statusCode": 500,
-            "headers": {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Credentials': True
-            },
-            'body': json.dumps({'error': repr(e)})
-        }
 
 # Returns 8 points on the boundary of a rectangle
 def getEightBoundaryPoints(h, w):
@@ -384,4 +283,4 @@ def warpImage(imIn, pointsIn, pointsOut, delaunayTri):
 
     # Warp pixels inside input triangle to output triangle.
     warpTriangle(imIn, imOut, tin, tout)
-  return imOut        
+  return imOut
